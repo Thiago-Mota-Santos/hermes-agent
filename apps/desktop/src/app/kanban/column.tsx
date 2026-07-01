@@ -1,5 +1,4 @@
 import { useDroppable } from '@dnd-kit/core'
-import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -39,27 +38,13 @@ interface KanbanColumnProps {
   now: number
   lanesByProfile: boolean
   onOpenTask: (taskId: string) => void
-  onCreate: (status: KanbanStatus, title: string) => void
+  onRequestCreate: (status: KanbanStatus) => void
 }
 
-export function KanbanColumn({ status, tasks, now, lanesByProfile, onOpenTask, onCreate }: KanbanColumnProps) {
+export function KanbanColumn({ status, tasks, now, lanesByProfile, onOpenTask, onRequestCreate }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
-  const [composing, setComposing] = useState(false)
-  const [title, setTitle] = useState('')
 
   const lanes = lanesByProfile ? groupByAssignee(tasks) : null
-
-  function submit() {
-    const trimmed = title.trim()
-
-    if (!trimmed) {
-      return
-    }
-
-    onCreate(status, trimmed)
-    setTitle('')
-    setComposing(false)
-  }
 
   return (
     <section className="flex h-full w-72 shrink-0 flex-col">
@@ -76,7 +61,7 @@ export function KanbanColumn({ status, tasks, now, lanesByProfile, onOpenTask, o
             <Button
               aria-label={`Add task to ${KANBAN_COLUMN_LABELS[status]}`}
               className="ml-auto text-(--ui-text-tertiary) hover:text-foreground"
-              onClick={() => setComposing(value => !value)}
+              onClick={() => onRequestCreate(status)}
               size="icon-xs"
               title="Add task here"
               type="button"
@@ -90,26 +75,6 @@ export function KanbanColumn({ status, tasks, now, lanesByProfile, onOpenTask, o
           </p>
         </div>
       </header>
-
-      {composing ? (
-        <form
-          className="mb-1.5 px-1"
-          onSubmit={event => {
-            event.preventDefault()
-            submit()
-          }}
-        >
-          <input
-            autoFocus
-            className="w-full rounded-[6px] border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) px-2 py-1.5 text-xs text-(--ui-text-primary) placeholder:text-(--ui-text-tertiary) focus-visible:border-(--ui-accent) focus-visible:outline-none"
-            onBlur={() => (title.trim() ? submit() : setComposing(false))}
-            onChange={event => setTitle(event.target.value)}
-            onKeyDown={event => event.key === 'Escape' && setComposing(false)}
-            placeholder={`New ${KANBAN_COLUMN_LABELS[status].toLowerCase()} task…`}
-            value={title}
-          />
-        </form>
-      ) : null}
 
       <div
         className={cn(

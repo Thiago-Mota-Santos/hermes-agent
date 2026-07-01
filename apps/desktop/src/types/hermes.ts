@@ -725,6 +725,7 @@ export interface KanbanCreateTask {
   assignee?: string
   priority?: number
   triage?: boolean
+  workspace_kind?: string
 }
 
 export interface KanbanBoardSummary {

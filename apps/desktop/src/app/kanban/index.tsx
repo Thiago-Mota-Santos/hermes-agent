@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import {
   createKanbanBoard,
-  createKanbanTask,
   deleteKanbanBoard,
   getKanbanBoard,
   getKanbanOrchestration,
@@ -42,6 +41,7 @@ import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 import { KanbanCardContent } from './card'
 import { KanbanColumn } from './column'
 import { isKanbanColumn, KANBAN_COLUMNS } from './constants'
+import { CreateTaskModal } from './create-task'
 import { KanbanDetail } from './detail'
 import { filterTasksByStatus, moveTaskStatus } from './helpers'
 import { OrchestrationSettings } from './orchestration'
@@ -68,6 +68,7 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
   const [showArchived, setShowArchived] = useState(false)
   const [lanesByProfile, setLanesByProfile] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<null | string>(null)
+  const [createStatus, setCreateStatus] = useState<KanbanStatus | null>(null)
   const [activeTask, setActiveTask] = useState<KanbanTask | null>(null)
   const [creatingBoard, setCreatingBoard] = useState(false)
   const [newBoardName, setNewBoardName] = useState('')
@@ -188,19 +189,6 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
     }
   }
 
-  async function handleCreate(status: KanbanStatus, title: string) {
-    busy.current = true
-
-    try {
-      await createKanbanTask({ title, triage: status === 'triage' }, boardSlug)
-      notify({ kind: 'success', title: 'Task created', message: title })
-      await load(true)
-    } catch (err) {
-      notifyError(err, 'Failed to create task')
-    } finally {
-      busy.current = false
-    }
-  }
 
   async function handleCreateBoard() {
     const label = newBoardName.trim()
@@ -431,8 +419,8 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
                   key={status}
                   lanesByProfile={lanesByProfile}
                   now={board.now}
-                  onCreate={handleCreate}
                   onOpenTask={setSelectedTaskId}
+                  onRequestCreate={setCreateStatus}
                   status={status}
                   tasks={grouped[status] ?? []}
                 />
@@ -467,6 +455,17 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
           onClose={() => setShowOrchestration(false)}
           onSaved={() => void refresh()}
           profiles={profiles}
+        />
+      ) : null}
+
+      {createStatus ? (
+        <CreateTaskModal
+          board={boardSlug}
+          defaultAssignee={orchestration?.default_assignee}
+          onClose={() => setCreateStatus(null)}
+          onCreated={() => void load(true)}
+          profiles={profiles}
+          status={createStatus}
         />
       ) : null}
     </section>
