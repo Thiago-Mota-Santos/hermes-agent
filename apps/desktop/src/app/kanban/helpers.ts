@@ -46,21 +46,30 @@ function matchesAssignee(task: KanbanTask, assignee: string | null): boolean {
   return (task.assignee ?? '') === assignee
 }
 
+function matchesTenant(task: KanbanTask, tenant: string | null): boolean {
+  if (!tenant) {
+    return true
+  }
+
+  return (task.tenant ?? '') === tenant
+}
+
 export interface FilterBoardArgs {
   board: KanbanBoardResponse
   query: string
   assignee: string | null
+  tenant: string | null
 }
 
-// Returns a status→tasks map filtered by the free-text query and the active
-// assignee, preserving the backend column ordering within each status.
+// Returns a status→tasks map filtered by the free-text query, the active
+// assignee and tenant, preserving the backend column ordering within each status.
 export function filterTasksByStatus(args: FilterBoardArgs): Record<KanbanStatus, KanbanTask[]> {
   const q = args.query.trim().toLowerCase()
   const grouped = {} as Record<KanbanStatus, KanbanTask[]>
 
   args.board.columns.forEach(column => {
     grouped[column.name] = column.tasks.filter(
-      task => matchesQuery(task, q) && matchesAssignee(task, args.assignee)
+      task => matchesQuery(task, q) && matchesAssignee(task, args.assignee) && matchesTenant(task, args.tenant)
     )
   })
 

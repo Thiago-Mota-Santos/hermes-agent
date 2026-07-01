@@ -727,6 +727,25 @@ export interface KanbanCreateTask {
   triage?: boolean
 }
 
+export interface KanbanBoardSummary {
+  slug: string
+  label?: null | string
+  task_count?: number
+  archived?: boolean
+}
+
+export interface KanbanBoardsResponse {
+  boards: KanbanBoardSummary[]
+  active?: null | string
+}
+
+export interface KanbanOrchestration {
+  orchestrator_profile?: null | string
+  default_assignee?: null | string
+  auto_decompose?: boolean
+  auto_promote_children?: boolean
+}
+
 export interface ToolEnvVar {
   key: string
   prompt: string

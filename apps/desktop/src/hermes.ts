@@ -18,7 +18,10 @@ import type {
   HermesConfig,
   HermesConfigRecord,
   KanbanBoardResponse,
+  KanbanBoardsResponse,
+  KanbanBoardSummary,
   KanbanCreateTask,
+  KanbanOrchestration,
   KanbanTask,
   KanbanTaskUpdate,
   LogsResponse,
@@ -83,7 +86,10 @@ export type {
   HermesConfig,
   HermesConfigRecord,
   KanbanBoardResponse,
+  KanbanBoardsResponse,
+  KanbanBoardSummary,
   KanbanCreateTask,
+  KanbanOrchestration,
   KanbanTask,
   KanbanTaskUpdate,
   LogsResponse,
@@ -584,10 +590,59 @@ function kanbanBoardQuery(board?: null | string): string {
   return board ? `?board=${encodeURIComponent(board)}` : ''
 }
 
-export function getKanbanBoard(board?: null | string): Promise<KanbanBoardResponse> {
+export interface GetKanbanBoardArgs {
+  board?: null | string
+  includeArchived?: boolean
+}
+
+export function getKanbanBoard(args: GetKanbanBoardArgs = {}): Promise<KanbanBoardResponse> {
+  const params = new URLSearchParams()
+
+  if (args.board) {
+    params.set('board', args.board)
+  }
+
+  if (args.includeArchived) {
+    params.set('include_archived', 'true')
+  }
+
+  const query = params.toString()
+
   return window.hermesDesktop.api<KanbanBoardResponse>({
     ...profileScoped(),
-    path: `${KANBAN_API_PREFIX}/board${kanbanBoardQuery(board)}`
+    path: `${KANBAN_API_PREFIX}/board${query ? `?${query}` : ''}`
+  })
+}
+
+export function listKanbanBoards(): Promise<KanbanBoardsResponse> {
+  return window.hermesDesktop.api<KanbanBoardsResponse>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/boards`
+  })
+}
+
+export function createKanbanBoard(slug: string, label?: string): Promise<{ board: KanbanBoardSummary }> {
+  return window.hermesDesktop.api<{ board: KanbanBoardSummary }>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/boards`,
+    method: 'POST',
+    body: { slug, label }
+  })
+}
+
+export function getKanbanOrchestration(): Promise<KanbanOrchestration> {
+  return window.hermesDesktop.api<KanbanOrchestration>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/orchestration`
+  })
+}
+
+export function nudgeKanbanDispatcher(board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/dispatch${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: {}
   })
 }
 
