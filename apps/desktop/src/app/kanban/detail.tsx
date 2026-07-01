@@ -92,7 +92,7 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
         const result = await getKanbanTaskLog(taskId, 20_000, board)
 
         if (!cancelled) {
-          setLog(result.log || '(no output yet)')
+          setLog(result.content || '(no output yet)')
         }
       } catch {
         // transient — keep the last log and retry on the next tick
@@ -131,7 +131,7 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
     try {
       const result = await getKanbanTaskLog(taskId, 20_000, board)
 
-      setLog(result.log || '(empty log)')
+      setLog(result.content || '(empty log)')
     } catch (err) {
       notifyError(err, 'Failed to read log')
     }

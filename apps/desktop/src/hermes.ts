@@ -714,14 +714,21 @@ export function deleteKanbanTask(taskId: string, board?: null | string): Promise
   })
 }
 
-export function getKanbanTaskLog(taskId: string, tail: number, board?: null | string): Promise<{ log: string }> {
+export interface KanbanTaskLog {
+  content: string
+  exists: boolean
+  size_bytes: number
+  truncated: boolean
+}
+
+export function getKanbanTaskLog(taskId: string, tail: number, board?: null | string): Promise<KanbanTaskLog> {
   const params = new URLSearchParams({ tail: String(tail) })
 
   if (board) {
     params.set('board', board)
   }
 
-  return window.hermesDesktop.api<{ log: string }>({
+  return window.hermesDesktop.api<KanbanTaskLog>({
     ...profileScoped(),
     path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/log?${params.toString()}`
   })
