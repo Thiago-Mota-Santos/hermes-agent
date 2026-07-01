@@ -26,8 +26,8 @@ export function CreateTaskModal({ status, board, profiles, defaultAssignee, onCl
   const [assignee, setAssignee] = useState(defaultAssignee ?? '')
   const [priority, setPriority] = useState(0)
   const [workspace, setWorkspace] = useState('scratch')
-  const [goalMode, setGoalMode] = useState(false)
-  const [goalMaxTurns, setGoalMaxTurns] = useState(200)
+  const [goalMode, setGoalMode] = useState(true)
+  const [goalMaxTurns, setGoalMaxTurns] = useState(300)
   const [saving, setSaving] = useState(false)
 
   async function create() {
