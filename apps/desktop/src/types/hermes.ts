@@ -726,6 +726,9 @@ export interface KanbanCreateTask {
   priority?: number
   triage?: boolean
   workspace_kind?: string
+  goal_mode?: boolean
+  goal_max_turns?: number
+  max_runtime_seconds?: number
 }
 
 export interface KanbanBoardSummary {

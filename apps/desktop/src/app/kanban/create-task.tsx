@@ -26,6 +26,8 @@ export function CreateTaskModal({ status, board, profiles, defaultAssignee, onCl
   const [assignee, setAssignee] = useState(defaultAssignee ?? '')
   const [priority, setPriority] = useState(0)
   const [workspace, setWorkspace] = useState('scratch')
+  const [goalMode, setGoalMode] = useState(false)
+  const [goalMaxTurns, setGoalMaxTurns] = useState(200)
   const [saving, setSaving] = useState(false)
 
   async function create() {
@@ -45,7 +47,9 @@ export function CreateTaskModal({ status, board, profiles, defaultAssignee, onCl
           assignee: assignee || undefined,
           priority,
           workspace_kind: workspace,
-          triage: status === 'triage'
+          triage: status === 'triage',
+          goal_mode: goalMode,
+          goal_max_turns: goalMode ? goalMaxTurns : undefined
         },
         board
       )
@@ -125,6 +129,33 @@ export function CreateTaskModal({ status, board, profiles, defaultAssignee, onCl
               <option value="worktree">worktree</option>
             </select>
           </label>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-[6px] border border-(--ui-stroke-tertiary) p-2">
+          <label className="flex items-center gap-2 text-xs text-(--ui-text-secondary)">
+            <input
+              checked={goalMode}
+              className="accent-current"
+              onChange={event => setGoalMode(event.target.checked)}
+              type="checkbox"
+            />
+            Run until done (goal mode)
+          </label>
+          <p className="text-[0.62rem] leading-snug text-(--ui-text-tertiary)">
+            Loops the worker across turns — a judge re-checks each turn and keeps going until the task is complete,
+            instead of stopping at the per-run iteration cap.
+          </p>
+          {goalMode ? (
+            <label className="flex items-center justify-between gap-2 text-[0.62rem] uppercase tracking-wide text-(--ui-text-tertiary)">
+              Max turns
+              <input
+                className={`${CONTROL} w-24`}
+                onChange={event => setGoalMaxTurns(Number(event.target.value) || 0)}
+                type="number"
+                value={goalMaxTurns}
+              />
+            </label>
+          ) : null}
         </div>
 
         <div className="flex justify-end gap-2 pt-1">
