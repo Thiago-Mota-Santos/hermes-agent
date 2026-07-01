@@ -120,6 +120,7 @@ import { useRouteResume } from './session/hooks/use-route-resume'
 import { useSessionActions } from './session/hooks/use-session-actions'
 import { useSessionListActions } from './session/hooks/use-session-list-actions'
 import { useSessionStateCache } from './session/hooks/use-session-state-cache'
+import { useTranscriptSync } from './session/hooks/use-transcript-sync'
 import { AppShell } from './shell/app-shell'
 import { useOverlayRouting } from './shell/hooks/use-overlay-routing'
 import { useStatusSnapshot } from './shell/hooks/use-status-snapshot'
@@ -869,6 +870,8 @@ export function DesktopController() {
     selectedStoredSessionIdRef,
     startFreshSessionDraft
   })
+
+  useTranscriptSync()
 
   const { leftStatusbarItems, statusbarItems } = useStatusbarItems({
     agentsOpen,

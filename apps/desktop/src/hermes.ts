@@ -22,7 +22,9 @@ import type {
   KanbanBoardSummary,
   KanbanCreateTask,
   KanbanOrchestration,
+  KanbanProfilesResponse,
   KanbanTask,
+  KanbanTaskDetail,
   KanbanTaskUpdate,
   LogsResponse,
   MemoryProviderConfig,
@@ -90,7 +92,9 @@ export type {
   KanbanBoardSummary,
   KanbanCreateTask,
   KanbanOrchestration,
+  KanbanProfilesResponse,
   KanbanTask,
+  KanbanTaskDetail,
   KanbanTaskUpdate,
   LogsResponse,
   MemoryProviderConfig,
@@ -643,6 +647,116 @@ export function nudgeKanbanDispatcher(board?: null | string): Promise<unknown> {
     path: `${KANBAN_API_PREFIX}/dispatch${kanbanBoardQuery(board)}`,
     method: 'POST',
     body: {}
+  })
+}
+
+export function getKanbanTask(taskId: string, board?: null | string): Promise<KanbanTaskDetail> {
+  return window.hermesDesktop.api<KanbanTaskDetail>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}${kanbanBoardQuery(board)}`
+  })
+}
+
+export function addKanbanComment(taskId: string, body: string, board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/comments${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: { body }
+  })
+}
+
+export function reassignKanbanTask(
+  taskId: string,
+  profile: null | string,
+  board?: null | string
+): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/reassign${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: { profile, reclaim_first: true }
+  })
+}
+
+export function specifyKanbanTask(taskId: string, board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/specify${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: {}
+  })
+}
+
+export function decomposeKanbanTask(taskId: string, board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/decompose${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: {}
+  })
+}
+
+export function reclaimKanbanTask(taskId: string, board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/reclaim${kanbanBoardQuery(board)}`,
+    method: 'POST',
+    body: {}
+  })
+}
+
+export function deleteKanbanTask(taskId: string, board?: null | string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}${kanbanBoardQuery(board)}`,
+    method: 'DELETE'
+  })
+}
+
+export function getKanbanTaskLog(taskId: string, tail: number, board?: null | string): Promise<{ log: string }> {
+  const params = new URLSearchParams({ tail: String(tail) })
+
+  if (board) {
+    params.set('board', board)
+  }
+
+  return window.hermesDesktop.api<{ log: string }>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/tasks/${encodeURIComponent(taskId)}/log?${params.toString()}`
+  })
+}
+
+export function listKanbanProfiles(): Promise<KanbanProfilesResponse> {
+  return window.hermesDesktop.api<KanbanProfilesResponse>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/profiles`
+  })
+}
+
+export function updateKanbanOrchestration(settings: KanbanOrchestration): Promise<KanbanOrchestration> {
+  return window.hermesDesktop.api<KanbanOrchestration>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/orchestration`,
+    method: 'PUT',
+    body: settings
+  })
+}
+
+export function renameKanbanBoard(slug: string, name: string): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/boards/${encodeURIComponent(slug)}`,
+    method: 'PATCH',
+    body: { name }
+  })
+}
+
+export function deleteKanbanBoard(slug: string, hardDelete = false): Promise<unknown> {
+  return window.hermesDesktop.api<unknown>({
+    ...profileScoped(),
+    path: `${KANBAN_API_PREFIX}/boards/${encodeURIComponent(slug)}${hardDelete ? '?delete=true' : ''}`,
+    method: 'DELETE'
   })
 }
 

@@ -746,6 +746,52 @@ export interface KanbanOrchestration {
   auto_promote_children?: boolean
 }
 
+export interface KanbanProfile {
+  name: string
+  is_default?: boolean
+  description?: string
+}
+
+export interface KanbanProfilesResponse {
+  profiles: KanbanProfile[]
+}
+
+export interface KanbanComment {
+  id: number
+  author: string
+  body: string
+  created_at: number
+}
+
+export interface KanbanRun {
+  id: number
+  status: string
+  outcome?: null | string
+  summary?: null | string
+  error?: null | string
+  profile?: null | string
+  started_at?: number
+  ended_at?: null | number
+}
+
+export interface KanbanTaskLink {
+  id: string
+  title?: string
+  status?: KanbanStatus
+}
+
+export interface KanbanTaskLinks {
+  parents: KanbanTaskLink[]
+  children: KanbanTaskLink[]
+}
+
+export interface KanbanTaskDetail {
+  task: KanbanTask
+  comments: KanbanComment[]
+  runs: KanbanRun[]
+  links: KanbanTaskLinks
+}
+
 export interface ToolEnvVar {
   key: string
   prompt: string

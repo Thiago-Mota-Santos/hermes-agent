@@ -16,10 +16,13 @@ import { Codicon } from '@/components/ui/codicon'
 import {
   createKanbanBoard,
   createKanbanTask,
+  deleteKanbanBoard,
   getKanbanBoard,
   getKanbanOrchestration,
   listKanbanBoards,
+  listKanbanProfiles,
   nudgeKanbanDispatcher,
+  renameKanbanBoard,
   updateKanbanTask
 } from '@/hermes'
 import { cn } from '@/lib/utils'
@@ -28,6 +31,7 @@ import type {
   KanbanBoardResponse,
   KanbanBoardSummary,
   KanbanOrchestration,
+  KanbanProfile,
   KanbanStatus,
   KanbanTask
 } from '@/types/hermes'
@@ -40,6 +44,7 @@ import { KanbanColumn } from './column'
 import { isKanbanColumn, KANBAN_COLUMNS } from './constants'
 import { KanbanDetail } from './detail'
 import { filterTasksByStatus, moveTaskStatus } from './helpers'
+import { OrchestrationSettings } from './orchestration'
 
 const KANBAN_POLL_INTERVAL_MS = 3000
 
@@ -55,6 +60,8 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
   const [boards, setBoards] = useState<KanbanBoardSummary[]>([])
   const [boardSlug, setBoardSlug] = useState<null | string>(null)
   const [orchestration, setOrchestration] = useState<KanbanOrchestration | null>(null)
+  const [profiles, setProfiles] = useState<KanbanProfile[]>([])
+  const [showOrchestration, setShowOrchestration] = useState(false)
   const [query, setQuery] = useState('')
   const [tenant, setTenant] = useState<null | string>(null)
   const [assignee, setAssignee] = useState<null | string>(null)
@@ -89,10 +96,11 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
     setRefreshing(true)
 
     try {
-      const [, nextBoards, nextOrchestration] = await Promise.all([
+      const [, nextBoards, nextOrchestration, nextProfiles] = await Promise.all([
         load(true),
         listKanbanBoards().catch(() => null),
-        getKanbanOrchestration().catch(() => null)
+        getKanbanOrchestration().catch(() => null),
+        listKanbanProfiles().catch(() => null)
       ])
 
       if (nextBoards) {
@@ -101,6 +109,10 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
 
       if (nextOrchestration) {
         setOrchestration(nextOrchestration)
+      }
+
+      if (nextProfiles) {
+        setProfiles(nextProfiles.profiles)
       }
     } finally {
       setRefreshing(false)
@@ -132,14 +144,6 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
 
     return filterTasksByStatus({ board, query, assignee, tenant })
   }, [board, query, assignee, tenant])
-
-  const selectedTask = useMemo(() => {
-    if (!board || !selectedTaskId) {
-      return null
-    }
-
-    return board.columns.flatMap(column => column.tasks).find(task => task.id === selectedTaskId) ?? null
-  }, [board, selectedTaskId])
 
   const totalTasks = useMemo(
     () => (board ? board.columns.reduce((sum, column) => sum + column.tasks.length, 0) : 0),
@@ -266,9 +270,50 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
           </span>
 
           {orchestration ? (
-            <span className="rounded-full border border-(--ui-stroke-tertiary) px-2 py-0.5 text-[0.7rem] text-(--ui-text-secondary)">
+            <button
+              className="rounded-full border border-(--ui-stroke-tertiary) px-2 py-0.5 text-[0.7rem] text-(--ui-text-secondary) hover:text-foreground"
+              onClick={() => setShowOrchestration(true)}
+              title="Orchestration settings"
+              type="button"
+            >
               Orchestration: {orchestrationLabel}
-            </span>
+            </button>
+          ) : null}
+
+          {boardSlug ? (
+            <>
+              <Button
+                onClick={() => {
+                  const name = window.prompt('Rename board', boardSlug)
+
+                  if (name?.trim()) {
+                    void renameKanbanBoard(boardSlug, name.trim()).then(() => void refresh())
+                  }
+                }}
+                size="icon-xs"
+                title="Rename board"
+                type="button"
+                variant="ghost"
+              >
+                <Codicon name="edit" size="0.8rem" />
+              </Button>
+              <Button
+                onClick={() => {
+                  if (window.confirm(`Archive board "${boardSlug}"?`)) {
+                    void deleteKanbanBoard(boardSlug).then(() => {
+                      setBoardSlug(null)
+                      void refresh()
+                    })
+                  }
+                }}
+                size="icon-xs"
+                title="Archive board"
+                type="button"
+                variant="ghost"
+              >
+                <Codicon name="trash" size="0.8rem" />
+              </Button>
+            </>
           ) : null}
 
           {creatingBoard ? (
@@ -403,11 +448,27 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
             </DragOverlay>
           </DndContext>
 
-          {selectedTask ? (
-            <KanbanDetail now={board.now} onClose={() => setSelectedTaskId(null)} task={selectedTask} />
+          {selectedTaskId ? (
+            <KanbanDetail
+              board={boardSlug}
+              now={board.now}
+              onChanged={() => void load(true)}
+              onClose={() => setSelectedTaskId(null)}
+              profiles={profiles}
+              taskId={selectedTaskId}
+            />
           ) : null}
         </div>
       )}
+
+      {showOrchestration && orchestration ? (
+        <OrchestrationSettings
+          current={orchestration}
+          onClose={() => setShowOrchestration(false)}
+          onSaved={() => void refresh()}
+          profiles={profiles}
+        />
+      ) : null}
     </section>
   )
 }
