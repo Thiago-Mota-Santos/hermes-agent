@@ -735,6 +735,10 @@ export interface KanbanBoardSummary {
   slug: string
   label?: null | string
   task_count?: number
+  /** Total task count across all statuses, as reported by `GET /boards`. */
+  total?: number
+  /** Per-status task counts (`{ todo: 2, done: 5, … }`) from `GET /boards`. */
+  counts?: Record<string, number>
   archived?: boolean
 }
 
