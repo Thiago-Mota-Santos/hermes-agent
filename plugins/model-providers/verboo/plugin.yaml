@@ -1,0 +1,5 @@
+name: verboo-provider
+kind: model-provider
+version: 1.0.0
+description: Verboo OpenAI-compatible router (DeepSeek V4, GLM, Kimi, MiMo)
+author: Thiago

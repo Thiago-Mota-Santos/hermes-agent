@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
+import { CopyButton } from '@/components/ui/copy-button'
 import {
   addKanbanComment,
   decomposeKanbanTask,
@@ -19,7 +20,11 @@ import { notify, notifyError } from '@/store/notifications'
 import type { KanbanProfile, KanbanStatus, KanbanTaskDetail } from '@/types/hermes'
 
 import { KANBAN_COLUMN_LABELS, KANBAN_COLUMNS } from './constants'
+import { collectEvidence } from './evidence'
+import { EvidenceGallery } from './evidence-gallery'
 import { formatAge } from './helpers'
+
+type KanbanDetailTab = 'details' | 'evidence'
 
 const STATUS_OPTIONS: KanbanStatus[] = [...KANBAN_COLUMNS, 'archived']
 
@@ -41,6 +46,7 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
   const [titleDraft, setTitleDraft] = useState('')
   const [bodyDraft, setBodyDraft] = useState('')
   const [comment, setComment] = useState('')
+  const [tab, setTab] = useState<KanbanDetailTab>('details')
   const [log, setLog] = useState<null | string>(null)
   const logRef = useRef<HTMLPreElement>(null)
 
@@ -126,6 +132,7 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
   const task = detail.task
   const isTriage = task.status === 'triage'
   const isRunning = task.status === 'running'
+  const evidence = collectEvidence(detail)
 
   async function viewLog() {
     try {
@@ -149,7 +156,35 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
+      <nav className="flex items-center gap-1 border-b border-(--stroke-nous) px-4">
+        {(['details', 'evidence'] as const).map(item => (
+          <button
+            className={cn(
+              'relative flex h-8 items-center gap-1.5 border-b-2 px-1.5 text-xs transition-colors',
+              tab === item
+                ? 'border-(--ui-accent) text-(--ui-text-primary)'
+                : 'border-transparent text-(--ui-text-tertiary) hover:text-(--ui-text-secondary)'
+            )}
+            key={item}
+            onClick={() => setTab(item)}
+            type="button"
+          >
+            {item === 'details' ? 'Details' : 'Evidence'}
+            {item === 'evidence' && evidence.length > 0 ? (
+              <span className="rounded-full bg-(--ui-bg-quaternary) px-1.5 text-[0.6rem] leading-4 text-(--ui-text-secondary)">
+                {evidence.length}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      {tab === 'evidence' ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+          <EvidenceGallery items={evidence} />
+        </div>
+      ) : (
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-4">
         <input
           className={cn(CONTROL, 'h-auto py-1.5 text-sm')}
           onBlur={() => titleDraft.trim() && titleDraft !== task.title && void run(() => updateKanbanTask(taskId, { title: titleDraft.trim() }, board), 'Title updated')}
@@ -316,9 +351,15 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
             Comments ({detail.comments.length})
           </span>
           {detail.comments.map(item => (
-            <div className="flex flex-col gap-0.5 rounded-[6px] bg-(--ui-bg-quaternary) px-2 py-1.5" key={item.id}>
-              <span className="text-[0.6rem] text-(--ui-text-tertiary)">{item.author}</span>
-              <span className="whitespace-pre-wrap text-xs text-(--ui-text-secondary)">{item.body}</span>
+            <div
+              className="group/tool-row flex flex-col gap-0.5 rounded-[6px] bg-(--ui-bg-quaternary) px-2 py-1.5"
+              key={item.id}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[0.6rem] text-(--ui-text-tertiary)">{item.author}</span>
+                <CopyButton appearance="tool-row" text={item.body} title="Copy comment" />
+              </div>
+              <span className="select-text whitespace-pre-wrap text-xs text-(--ui-text-secondary)">{item.body}</span>
             </div>
           ))}
           <form
@@ -343,6 +384,7 @@ export function KanbanDetail({ taskId, board, profiles, now, onClose, onChanged 
           </form>
         </div>
       </div>
+      )}
     </aside>
   )
 }

@@ -38,8 +38,10 @@ import type {
 import { PAGE_INSET_X } from '../layout-constants'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
+import { BoardTabs } from './board-tabs'
 import { KanbanCardContent } from './card'
 import { KanbanColumn } from './column'
+import { ColumnOverview } from './column-overview'
 import { isKanbanColumn, KANBAN_COLUMNS } from './constants'
 import { CreateTaskModal } from './create-task'
 import { KanbanDetail } from './detail'
@@ -48,8 +50,28 @@ import { OrchestrationSettings } from './orchestration'
 
 const KANBAN_POLL_INTERVAL_MS = 3000
 
+// Horizontal-scroll tuning for the column strip: a column is "off-screen" once
+// less than this fraction is visible; the edge arrows nudge by roughly one column.
+const COLUMN_VISIBLE_RATIO = 0.5
+const COLUMN_SCROLL_STEP = 320
+const COLUMN_SCROLL_MARGIN = 8
+
 const CONTROL_CLASS =
   'h-7 rounded-[6px] border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) px-2 text-xs text-(--ui-text-primary) focus-visible:border-(--ui-accent) focus-visible:outline-none'
+
+function isSameStatusSet(a: Set<KanbanStatus>, b: Set<KanbanStatus>): boolean {
+  if (a.size !== b.size) {
+    return false
+  }
+
+  for (const value of a) {
+    if (!b.has(value)) {
+      return false
+    }
+  }
+
+  return true
+}
 
 interface KanbanViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
@@ -151,6 +173,83 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
     [board]
   )
 
+  const columnCounts = useMemo(() => {
+    const counts = {} as Record<KanbanStatus, number>
+
+    KANBAN_COLUMNS.forEach(status => {
+      counts[status] = grouped?.[status]?.length ?? 0
+    })
+
+    return counts
+  }, [grouped])
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollEdges, setScrollEdges] = useState({ left: false, right: false })
+  const [offscreen, setOffscreen] = useState<Set<KanbanStatus>>(new Set())
+
+  const measureScroll = useCallback(() => {
+    const el = scrollRef.current
+
+    if (!el) {
+      return
+    }
+
+    const left = el.scrollLeft > 1
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+
+    setScrollEdges(prev => (prev.left === left && prev.right === right ? prev : { left, right }))
+
+    const elRect = el.getBoundingClientRect()
+    const hidden = new Set<KanbanStatus>()
+
+    el.querySelectorAll<HTMLElement>('[data-column]').forEach(node => {
+      const rect = node.getBoundingClientRect()
+      const visible = Math.min(rect.right, elRect.right) - Math.max(rect.left, elRect.left)
+
+      if (visible < rect.width * COLUMN_VISIBLE_RATIO) {
+        hidden.add(node.dataset.column as KanbanStatus)
+      }
+    })
+
+    setOffscreen(prev => (isSameStatusSet(prev, hidden) ? prev : hidden))
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+
+    if (!board || !el) {
+      return
+    }
+
+    measureScroll()
+
+    el.addEventListener('scroll', measureScroll, { passive: true })
+
+    const observer = new ResizeObserver(measureScroll)
+
+    observer.observe(el)
+
+    return () => {
+      el.removeEventListener('scroll', measureScroll)
+      observer.disconnect()
+    }
+  }, [measureScroll, board])
+
+  const scrollColumns = useCallback((direction: number) => {
+    scrollRef.current?.scrollBy({ left: direction * COLUMN_SCROLL_STEP, behavior: 'smooth' })
+  }, [])
+
+  const scrollToColumn = useCallback((status: KanbanStatus) => {
+    const el = scrollRef.current
+    const node = el?.querySelector<HTMLElement>(`[data-column="${status}"]`)
+
+    if (el && node) {
+      const delta = node.getBoundingClientRect().left - el.getBoundingClientRect().left - COLUMN_SCROLL_MARGIN
+
+      el.scrollBy({ left: delta, behavior: 'smooth' })
+    }
+  }, [])
+
   const hasFilters = Boolean(query || tenant || assignee)
 
   function handleDragStart(event: DragStartEvent) {
@@ -240,19 +339,12 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
       <div className={cn('shrink-0 pt-[calc(var(--titlebar-height)+0.5rem)]', PAGE_INSET_X)}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-2">
           <span className="text-[0.7rem] uppercase tracking-wide text-(--ui-text-tertiary)">Board</span>
-          <select
-            className={CONTROL_CLASS}
-            onChange={event => setBoardSlug(event.target.value || null)}
-            value={boardSlug ?? ''}
-          >
-            <option value="">Default</option>
-            {boards.map(item => (
-              <option key={item.slug} value={item.slug}>
-                {item.label || item.slug}
-                {typeof item.task_count === 'number' ? ` · ${item.task_count}` : ''}
-              </option>
-            ))}
-          </select>
+          <BoardTabs
+            activeSlug={boardSlug}
+            activeTotal={totalTasks}
+            boards={boards}
+            onSelect={setBoardSlug}
+          />
           <span className="text-xs text-(--ui-text-tertiary)">
             {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
           </span>
@@ -408,33 +500,73 @@ export function KanbanView({ setStatusbarItemGroup: _setStatusbarItemGroup, clas
         <PageLoader />
       ) : (
         <div className="flex min-h-0 flex-1">
-          <DndContext
-            onDragEnd={event => void handleDragEnd(event)}
-            onDragStart={handleDragStart}
-            sensors={sensors}
-          >
-            <div className={cn('flex min-h-0 flex-1 gap-3 overflow-x-auto pb-3 pt-2', PAGE_INSET_X)}>
-              {KANBAN_COLUMNS.map(status => (
-                <KanbanColumn
-                  key={status}
-                  lanesByProfile={lanesByProfile}
-                  now={board.now}
-                  onOpenTask={setSelectedTaskId}
-                  onRequestCreate={setCreateStatus}
-                  status={status}
-                  tasks={grouped[status] ?? []}
-                />
-              ))}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className={cn('shrink-0', PAGE_INSET_X)}>
+              <ColumnOverview counts={columnCounts} offscreen={offscreen} onJump={scrollToColumn} />
             </div>
 
-            <DragOverlay>
-              {activeTask ? (
-                <div className="w-72">
-                  <KanbanCardContent dragging now={board.now} task={activeTask} />
+            <div className="relative flex min-h-0 min-w-0 flex-1">
+              <DndContext
+                onDragEnd={event => void handleDragEnd(event)}
+                onDragStart={handleDragStart}
+                sensors={sensors}
+              >
+                <div
+                  className={cn('flex min-h-0 flex-1 gap-3 overflow-x-auto pb-3 pt-2', PAGE_INSET_X)}
+                  ref={scrollRef}
+                >
+                  {KANBAN_COLUMNS.map(status => (
+                    <div className="flex h-full shrink-0" data-column={status} key={status}>
+                      <KanbanColumn
+                        lanesByProfile={lanesByProfile}
+                        now={board.now}
+                        onOpenTask={setSelectedTaskId}
+                        onRequestCreate={setCreateStatus}
+                        status={status}
+                        tasks={grouped[status] ?? []}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <DragOverlay>
+                  {activeTask ? (
+                    <div className="w-72">
+                      <KanbanCardContent dragging now={board.now} task={activeTask} />
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+
+              {scrollEdges.left ? (
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center">
+                  <div className="pointer-events-none h-full w-12 bg-gradient-to-r from-(--ui-chat-surface-background) to-transparent" />
+                  <button
+                    aria-label="Scroll columns left"
+                    className="pointer-events-auto absolute left-1.5 flex size-7 items-center justify-center rounded-full border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) text-(--ui-text-secondary) shadow-sm transition-colors hover:text-(--ui-text-primary)"
+                    onClick={() => scrollColumns(-1)}
+                    type="button"
+                  >
+                    <Codicon name="chevron-left" size="0.9rem" />
+                  </button>
                 </div>
               ) : null}
-            </DragOverlay>
-          </DndContext>
+
+              {scrollEdges.right ? (
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-end">
+                  <div className="pointer-events-none h-full w-12 bg-gradient-to-l from-(--ui-chat-surface-background) to-transparent" />
+                  <button
+                    aria-label="Scroll columns right"
+                    className="pointer-events-auto absolute right-1.5 flex size-7 items-center justify-center rounded-full border border-(--ui-stroke-tertiary) bg-(--ui-bg-quaternary) text-(--ui-text-secondary) shadow-sm transition-colors hover:text-(--ui-text-primary)"
+                    onClick={() => scrollColumns(1)}
+                    type="button"
+                  >
+                    <Codicon name="chevron-right" size="0.9rem" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           {selectedTaskId ? (
             <KanbanDetail
